@@ -250,10 +250,20 @@ def fmp_test(ticker: str):
         timeout=20
     )
 
+    try:
+        quote_data = quote_response.json()
+    except Exception:
+        quote_data = quote_response.text
+
+    try:
+        target_data = target_response.json()
+    except Exception:
+        target_data = target_response.text
+
     return {
         "ticker": symbol,
         "quote_status": quote_response.status_code,
-        "quote": quote_response.json(),
+        "quote": quote_data,
         "target_status": target_response.status_code,
-        "target": target_response.json()
+        "target": target_data
     }
