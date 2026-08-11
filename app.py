@@ -117,16 +117,32 @@ def get_zacks_rank(ticker: str, session: requests.Session) -> tuple[int | None, 
 
 def get_yahoo_prices(ticker: str) -> tuple[float | None, float | None, str | None]:
     try:
-        info = yf.Ticker(ticker).info
-        current_price = as_float(
-            info.get("currentPrice")
-            or info.get("regularMarketPrice")
-            or info.get("previousClose")
-        )
-        average_target = as_float(info.get("targetMeanPrice"))
+        stock = yf.Ticker(ticker)
+
+        current_price = None
+        average_target = None
+
+        try:
+            current_price = as_float(stock.fast_info["last_price"])
+        except Exception:
+            pass
+
+        try:
+            targets = stock.get_analyst_price_targets()
+
+            if targets:
+                average_target = as_float(targets.get("mean"))
+
+                if current_price is None:
+                    current_price = as_float(targets.get("current"))
+        except Exception:
+            pass
+
         if current_price is None and average_target is None:
             return None, None, "No Yahoo price or target data found"
+
         return current_price, average_target, None
+
     except Exception as exc:
         return None, None, f"Yahoo error: {exc}"
 
