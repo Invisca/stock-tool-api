@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import os
+
 API_URL = "https://quote-feed.zacks.com/index"
 TICKER_PARAMETER = "t"
 RANK_FIELD_NAMES = ("zacks_rank", "zacksRank", "rank", "zr_rank")
@@ -220,3 +222,38 @@ def stocks(request: StockRequest):
                 time.sleep(delay)
 
     return {"count": len(results), "results": [result_to_dict(r) for r in results]}
+
+@app.get("/fmp-test/{ticker}")
+def fmp_test(ticker: str):
+    api_key = os.getenv("FMP_API_KEY")
+
+    if not api_key:
+        raise HTTPException(status_code=500, detail="FMP_API_KEY is not set")
+
+    symbol = ticker.upper()
+
+    quote_response = requests.get(
+        "https://financialmodelingprep.com/stable/quote",
+        params={
+            "symbol": symbol,
+            "apikey": api_key
+        },
+        timeout=20
+    )
+
+    target_response = requests.get(
+        "https://financialmodelingprep.com/stable/price-target-consensus",
+        params={
+            "symbol": symbol,
+            "apikey": api_key
+        },
+        timeout=20
+    )
+
+    return {
+        "ticker": symbol,
+        "quote_status": quote_response.status_code,
+        "quote": quote_response.json(),
+        "target_status": target_response.status_code,
+        "target": target_response.json()
+    }
