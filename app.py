@@ -116,36 +116,40 @@ def get_zacks_rank(ticker: str, session: requests.Session) -> tuple[int | None, 
         return None, "Zacks returned invalid JSON"
 
 def get_yahoo_prices(ticker: str) -> tuple[float | None, float | None, str | None]:
+    stock = yf.Ticker(ticker)
+
+    current_price = None
+    average_target = None
+    errors = []
+
     try:
-        stock = yf.Ticker(ticker)
+        current_price = as_float(stock.fast_info["last_price"])
+    except Exception as exc:
+        errors.append(f"Current price error: {exc}")
 
-        current_price = None
-        average_target = None
+    try:
+        targets = stock.get_analyst_price_targets()
 
-        try:
-            current_price = as_float(stock.fast_info["last_price"])
-        except Exception:
-            pass
+        if targets:
+            average_target = as_float(targets.get("mean"))
 
-        try:
-            targets = stock.get_analyst_price_targets()
+            if current_price is None:
+                current_price = as_float(targets.get("current"))
 
-            if targets:
-                average_target = as_float(targets.get("mean"))
-
-                if current_price is None:
-                    current_price = as_float(targets.get("current"))
-        except Exception:
-            pass
-
-        if current_price is None and average_target is None:
-            return None, None, "No Yahoo price or target data found"
-
-        return current_price, average_target, None
+        if average_target is None:
+            errors.append(f"No analyst target returned. Raw targets: {targets}")
 
     except Exception as exc:
-        return None, None, f"Yahoo error: {exc}"
+        errors.append(f"Analyst target error: {exc}")
 
+    if current_price is None and average_target is None:
+        return None, None, "; ".join(errors)
+
+    return (
+        current_price,
+        average_target,
+        "; ".join(errors) if errors else None
+    )
 def get_stock_result(ticker: str, session: requests.Session) -> StockResult:
     rank, zacks_error = get_zacks_rank(ticker, session)
     current_price, average_target, yahoo_error = get_yahoo_prices(ticker)
